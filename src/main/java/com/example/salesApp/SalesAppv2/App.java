@@ -5,10 +5,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.web.JsonPath;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -111,40 +114,78 @@ public class App
 	
 	
 	//This function retrieves the results of the query
-	public static void processResultsRows(AthenaClient athenaClient, String queryExecutionID) {
+	public static ArrayList<String> processResultsRows(AthenaClient athenaClient, String queryExecutionID) {
 		GetQueryResultsRequest getQueryResultsRequest = GetQueryResultsRequest.builder()
 				.queryExecutionId(queryExecutionID).build();
 		
 		GetQueryResultsIterable getQueryResultsResults = athenaClient.getQueryResultsPaginator(getQueryResultsRequest);
 		List<Row> results = null;
 		
+		String resultData = new String();
+		ArrayList<String> listOfResult = new ArrayList<>();
+		
 		for(GetQueryResultsResponse Resultresult : getQueryResultsResults) {
 			List<ColumnInfo> columnInfoList = Resultresult.resultSet().resultSetMetadata().columnInfo();
 			results = Resultresult.resultSet().rows();
-			/* return results; */
-			 processRow(results, columnInfoList);
+			
+			 resultData =  processRowNew(results, columnInfoList);
+			 listOfResult.add(resultData);
 		}
-		
+		/*
+		 * return results;
+		 */		 
+		return listOfResult;		
 	}
 	
-	//This function is used to process each row
-	public static void processRow(List<Row> rowList, List<ColumnInfo> columnInfoList) {
+	//new function to process each row
+	public static String processRowNew(List<Row> rowList,List<ColumnInfo> columnInfoList) {
 		List<String> columns = new ArrayList<>();
 		for(ColumnInfo columnInfo : columnInfoList) {
 			columns.add(columnInfo.name());
 		}
-		for (Row myRow : rowList) {
-			//hashmap with the name of the column as key; and populate datum value to corresponding key(column name)
-			//object mapper from jackson; spring jackson
-            List<Datum> allData = myRow.data();
-            //this list contains the data returned by the athena query
-            //this data is being printed row-wise
-            //thus we will try to use hashmap to store the data 
-            for (Datum data : allData) {
-                System.out.println("The value of the column is "+data.varCharValue());
-            }
-        }
-	}
+		List<String> columnName = new ArrayList<>();
+		MultiValuedMap<String, String> dataset = new ArrayListValuedHashMap<>();
+		int i=0;
+		for(Row myRow : rowList) 
+		{
+			if(i==0) 
+			{
+				//This is the individual rows in the dataset
+				List<Datum> allData = myRow.data();
+				for (Datum data : allData) {
+	                columnName.add(data.varCharValue());
+	            }
+			}
+			else
+			{
+				int j=0;
+				//This is the individual rows in the dataset
+				List<Datum> allData = myRow.data();
+				for (Datum data : allData) 
+				{
+	                dataset.put(columnName.get(j), data.varCharValue());
+	                j++;
+	            }
+				
+			}
+			i++;
+		}
+		return dataset.toString();
+   }
+	
+	//This function is used to process each row
+	/*
+	 * public static void processRow(List<Row> rowList, List<ColumnInfo>
+	 * columnInfoList) { List<String> columns = new ArrayList<>(); for(ColumnInfo
+	 * columnInfo : columnInfoList) { columns.add(columnInfo.name()); } for (Row
+	 * myRow : rowList) { //hashmap with the name of the column as key; and populate
+	 * datum value to corresponding key(column name) //object mapper from jackson;
+	 * spring jackson List<Datum> allData = myRow.data(); //this list contains the
+	 * data returned by the athena query //this data is being printed row-wise
+	 * //thus we will try to use hashmap to store the data for (Datum data :
+	 * allData) {
+	 * System.out.println("The value of the column is "+data.varCharValue()); } } }
+	 */
 	
 }
 	
